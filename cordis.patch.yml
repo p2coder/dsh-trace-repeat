@@ -1,0 +1,9 @@
+# dsh-trace-repeat bundle patch: one dual-face row. The host half
+# (lib/index.js) records per-session traces (reasoning/tool completions as
+# atomic immutable versions), syncs versions to a dedicated git repo with
+# worktree materialization, and registers the /trace command family plus the
+# /trace-repeat/* JSON routes for the settings panel; the browser half
+# (lib/client.js) renders the 设置页「Trace 回放」page.
+- insert:
+    - id: trace-repeat
+      name: 'dsh-trace-repeat'
