@@ -8,7 +8,7 @@ import {
   appendVersion, atomicWriteJson, buildSeedFromTrace, commitVersion, encodeSessionId,
   ensureTraceGit, handleSessionEvent, mapEventToVersion, materializeWorktree,
   readTrace, readVersionFile, traceDirFor, versionFileName
-} from "/Users/wx/Desktop/DSH/dsh-trace-repeat/lib/index.js";
+} from "../lib/index.js";
 
 const root = mkdtempSync(join(tmpdir(), "dsh-trace-repeat-test-"));
 try {
@@ -48,18 +48,19 @@ try {
   if (user.type !== "user") throw new Error("user mapping wrong");
   const snapshot = mapEventToVersion({ type: "user/message", seq: 8, time: 4, data: { content: [{ type: "text", text: "context" }], source: { kind: "plugin", plugin: "@deepseek-ai/dsh-system-prompt" } } }, {});
   if (snapshot !== null) throw new Error("system-prompt snapshot should be skipped");
-  const paused = mapEventToVersion({ type: "task-control/paused", seq: 9, time: 5, data: {} }, {});
-  const resumed = mapEventToVersion({ type: "task-control/resumed", seq: 10, time: 6, data: {} }, {});
-  if (paused.type !== "paused" || resumed.type !== "resumed") throw new Error("pause/resume mapping wrong");
+  const customPaused = mapEventToVersion({ type: "task-control/paused", seq: 9, time: 5, data: {} }, {});
+  const customResumed = mapEventToVersion({ type: "task-control/resumed", seq: 10, time: 6, data: {} }, {});
+  if (customPaused !== null || customResumed !== null) throw new Error("custom task-control events must not map to versions (Route A: state lives in the taskControl store)");
   const chunk = mapEventToVersion({ type: "assistant/chunk", seq: 11, time: 7, data: {} }, {});
   if (chunk !== null) throw new Error("chunk should not be a version");
-  console.log("mapping: reasoning/tool/user/snapshot-skip/paused/resumed/chunk-skip OK");
+  console.log("mapping: reasoning/tool/user/snapshot-skip/custom-event-skip/chunk-skip OK");
 
-  // --- recorder with pause gating -----------------------------------------------
+  // --- recorder with pause gating (state comes from the taskControl service) ---
   const events = [];
+  const tcState = { paused: false, forced: false, interruptedTool: null };
   const mkCtx = () => ({
     logger: { error: (...a) => console.log("[error]", ...a) },
-    get: () => undefined,
+    get: (key) => key === "taskControl" ? { state: () => tcState } : undefined,
     agents: { get: () => undefined },
     agentDefaultModel: { currentSelection: () => ({ provider: "p", model: "m" }) },
     sessions: { get: () => undefined },
@@ -72,14 +73,14 @@ try {
   const fire = (e) => handleSessionEvent(mkCtx(), config.traceRoot, config, state, session, e);
   fire(ev(0, "user/message", [{ type: "text", text: "task prompt" }], { kind: "user" }));
   fire(ev(1, "assistant/message", { turn: 1, step: 1, message: { role: "assistant", content: [{ type: "text", text: "a1" }], source: { kind: "model", provider: "p", model: "m" } }, usage: {} }));
-  fire(ev(2, "task-control/paused", {}));
-  fire(ev(3, "assistant/message", { turn: 1, step: 2, message: { role: "assistant", content: [{ type: "text", text: "during pause" }], source: { kind: "model", provider: "p", model: "m" } }, usage: {} }));
-  fire(ev(4, "user/message", [{ type: "text", text: "new input while paused" }], { kind: "user" }));
-  fire(ev(5, "task-control/resumed", {}));
-  fire(ev(6, "assistant/message", { turn: 1, step: 3, message: { role: "assistant", content: [{ type: "text", text: "after resume" }], source: { kind: "model", provider: "p", model: "m" } }, usage: {} }));
+  tcState.paused = true;
+  fire(ev(2, "assistant/message", { turn: 1, step: 2, message: { role: "assistant", content: [{ type: "text", text: "during pause" }], source: { kind: "model", provider: "p", model: "m" } }, usage: {} }));
+  fire(ev(3, "user/message", [{ type: "text", text: "new input while paused" }], { kind: "user" }));
+  tcState.paused = false;
+  fire(ev(4, "assistant/message", { turn: 1, step: 3, message: { role: "assistant", content: [{ type: "text", text: "after resume" }], source: { kind: "model", provider: "p", model: "m" } }, usage: {} }));
   // native tool pipeline: tool/call + tool/result
-  fire({ seq: 7, type: "tool/call", time: 7, data: { turn: 1, step: 4, callId: "call_1", name: "bash", arguments: JSON.stringify({ command: "echo hi" }) } });
-  fire({ seq: 8, type: "tool/result", time: 8, data: { turn: 1, step: 4, message: { source: { kind: "tool", callId: "call_1" }, content: [{ type: "tool-result", toolCallId: "call_1", content: [{ type: "text", text: "hi" }], isError: false }], role: "user" } } });
+  fire({ seq: 5, type: "tool/call", time: 5, data: { turn: 1, step: 4, callId: "call_1", name: "bash", arguments: JSON.stringify({ command: "echo hi" }) } });
+  fire({ seq: 6, type: "tool/result", time: 6, data: { turn: 1, step: 4, message: { source: { kind: "tool", callId: "call_1" }, content: [{ type: "tool-result", toolCallId: "call_1", content: [{ type: "text", text: "hi" }], isError: false }], role: "user" } } });
   const recorded = readTrace(config.traceRoot, "sess-1");
   const types = recorded.versions.map((v) => v.type);
   console.log("recorder types ->", types.join(","));
