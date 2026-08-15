@@ -10,7 +10,7 @@
 | **原子性** | 每版本一个不可变 JSON（tmp 写 + rename 原子落盘），`trace.json` 索引同样原子更新；按源事件 seq 幂等去重 |
 | **可复现元数据** | provider/model/reasoningEffort/maxTokens/usage/完整 content（推理）；工具名/callId/参数/结果/isError（工具）；会话头记 workspace/cwd/preset/agentOptions |
 | **git 版本化** | 默认开启：trace 根（`.dsh-trace/`）即专用 git 仓库（自动 init，不污染工作区），每版本一个 commit；worktree 物化在 `.dsh-trace-worktrees/<session>-v<seq>`（git 不允许 worktree 建在仓库内） |
-| **暂停/恢复** | 观察 `task-control/paused`/`resumed` 事件：**延迟暂停**语义下，暂停请求不中断正在执行的工具——tool 运行期间 trace 持续记录，`tool/result` 落地后（安全界限）才真正暂停，随后记 `paused` 版本并停止产生推理/tool 版本；恢复时记 `resumed` 标记版本并续记；与 task-control 完全解耦 |
+| **暂停/恢复** | 观察 `task-control/paused`/`resumed` 事件：安全暂停（延迟语义）下 tool 运行期间 trace 持续记录、`tool/result` 落地后（安全界限）才暂停；**强制暂停**的 paused 版本记录 `forced` 与 `interruptedTool` 详情；恢复时记 `resumed` 标记版本并续记；与 task-control 完全解耦 |
 | **回放** | 设置页「Trace 回放」+ `/trace` 命令族：会话选择 → 版本时间线（类型/时间/git commit）→ 详情（完整输入输出 + 元数据）→ 打开 worktree / 从此版本恢复 |
 | **恢复执行** | `/trace resume <session> <vN>`：以 vN 前 trace 重建**平衡上下文**（自动截断到最近一个无悬挂 tool 调用的「推理完成」版本），在对应 worktree 里**新开会话**继续执行，新会话自身继续被记录 |
 
