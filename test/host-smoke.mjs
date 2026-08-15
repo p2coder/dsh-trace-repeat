@@ -38,7 +38,7 @@ try {
   console.log("rebuild ->", rebuilt.versions.length, "versions");
 
   // --- event mapping ------------------------------------------------------------
-  const reasoning = mapEventToVersion({ type: "assistant/message", seq: 5, time: 1, data: { turn: 1, step: 2, message: { role: "assistant", content: [{ type: "tool_call", id: "c1", name: "bash", input: { command: "ls" } }, { type: "text", text: "ok" }], source: { kind: "model", provider: "deepseek-official", model: "deepseek-v4-flash" } }, usage: { inputTokens: 10 } } }, { agentOptions: {} });
+  const reasoning = mapEventToVersion({ type: "assistant/message", seq: 5, time: 1, data: { turn: 1, step: 2, message: { role: "assistant", content: [{ type: "tool-call", id: "c1", name: "bash", arguments: JSON.stringify({ command: "ls" }) }, { type: "text", text: "ok" }], source: { kind: "model", provider: "deepseek-official", model: "deepseek-v4-flash" } }, usage: { inputTokens: 10 } } }, { agentOptions: {} });
   if (reasoning.type !== "reasoning" || reasoning.meta.provider !== "deepseek-official" || reasoning.toolCalls.length !== 1) throw new Error("reasoning mapping wrong");
   console.log("reasoning ->", reasoning.type, reasoning.meta.provider, "toolCalls:", reasoning.toolCalls.length);
 
@@ -102,7 +102,7 @@ try {
   const rt2 = join(root, "rt2");
   const ev2 = (seq, type, data, source) => ({ seq, type, time: seq, data: source !== void 0 ? { content: data, source } : data });
   handleSessionEvent(seedCtx, rt2, { traceRoot: rt2, traceGit: false, maxVersions: 100 }, seedState, s2, ev2(0, "user/message", [{ type: "text", text: "task" }], { kind: "user" }));
-  handleSessionEvent(seedCtx, rt2, { traceRoot: rt2, traceGit: false, maxVersions: 100 }, seedState, s2, ev2(1, "assistant/message", { turn: 1, step: 1, message: { role: "assistant", content: [{ type: "tool_call", id: "c1", name: "bash", input: {} }], source: { kind: "model", provider: "p", model: "m" } }, usage: {} }));
+  handleSessionEvent(seedCtx, rt2, { traceRoot: rt2, traceGit: false, maxVersions: 100 }, seedState, s2, ev2(1, "assistant/message", { turn: 1, step: 1, message: { role: "assistant", content: [{ type: "tool-call", id: "c1", name: "bash", arguments: "{}" }], source: { kind: "model", provider: "p", model: "m" } }, usage: {} }));
   handleSessionEvent(seedCtx, rt2, { traceRoot: rt2, traceGit: false, maxVersions: 100 }, seedState, s2, ev2(2, "user/message", [{ type: "tool-result", toolCallId: "c1", content: [{ type: "text", text: "out" }], isError: false }], { kind: "tool", callId: "c1" }));
   handleSessionEvent(seedCtx, rt2, { traceRoot: rt2, traceGit: false, maxVersions: 100 }, seedState, s2, ev2(3, "assistant/message", { turn: 1, step: 2, message: { role: "assistant", content: [{ type: "text", text: "final" }], source: { kind: "model", provider: "p", model: "m" } }, usage: {} }));
   const trace2 = readTrace(rt2, "sess-2");
